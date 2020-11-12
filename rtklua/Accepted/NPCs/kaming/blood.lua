@@ -117,7 +117,7 @@ BloodNpc = {
 				return
 			end
 		elseif choice == "Seal blood oath" then
-			if (os.time() < player.registry["seal_blood_oath_timer"] and not Config.shotgunWeddingEnabled) then
+			if (os.time() < player.registry["seal_blood_oath_timer"]) then
 				player:dialogSeq(
 					{
 						t,

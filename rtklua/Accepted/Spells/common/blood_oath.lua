@@ -124,12 +124,8 @@ blood_oath = {
 			proposer.registry["partner1"] = proposer.ID
 			proposer.registry["partner2"] = target.ID
 
-			target.registry["seal_blood_oath_timer"] = os.time() + 259200
-
-			-- 3 days
-			proposer.registry["seal_blood_oath_timer"] = os.time() + 259200
-
-			-- 3 days
+			target.registry["seal_blood_oath_timer"] = os.time() + Config.EngagementHoursRequired * 3600
+			proposer.registry["seal_blood_oath_timer"] = os.time() + Config.EngagementHoursRequired * 3600
 
 			proposer:removeSpell("blood_oath")
 			proposer:dialog(target.name .. " accepts!", {})

@@ -108,12 +108,8 @@ propose = {
 			proposer.registry["partner1"] = proposer.ID
 			proposer.registry["partner2"] = target.ID
 
-			target.registry["marriage_timer"] = os.time() + 259200
-
-			-- 3 days
-			proposer.registry["marriage_timer"] = os.time() + 259200
-
-			-- 3 days
+			target.registry["marriage_timer"] = os.time() + Config.EngagementHoursRequired * 3600
+			proposer.registry["marriage_timer"] = os.time() + Config.EngagementHoursRequired * 3600
 
 			proposer:removeSpell("propose")
 			proposer:dialog(target.name .. " accepts!", {})

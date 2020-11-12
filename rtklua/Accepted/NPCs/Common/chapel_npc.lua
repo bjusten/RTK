@@ -167,7 +167,7 @@ ChapelNpc = {
 				return
 			end
 		elseif menu == "Marriage" then
-			if (os.time() < player.registry["marriage_timer"] and not Config.shotgunWeddingEnabled) then
+			if (os.time() < player.registry["marriage_timer"]) then
 				player:dialogSeq(
 					{
 						t,

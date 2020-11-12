@@ -9,7 +9,14 @@ Config = {
     -- When enabled, the 1/25 chance of a crafting skill bonus always applies even
     -- when it is not one's totem time. Default value is false.
     -- ----------------------------------------------------------------------------
-    craftingBonusAlwaysEnabled = true,
+    craftingBonusAlwaysEnabled = false,
+
+	-- ---------------------------------------------------------------------------
+    -- Number of hours a couple must be engaged before they are allowed to marry.
+    -- Applies to blood oaths as well.
+	-- Default value is 72 (i.e. 3 days).
+	-- ---------------------------------------------------------------------------
+	EngagementHoursRequired = 72,
 
     -- -------------------------------------------------------------------------------
     -- Determines how fast/slow the cost of selling experience scales with vita/mana.
@@ -64,7 +71,7 @@ Config = {
     -- The number of milliseconds after using a Love or Blood stone before it can be
     -- used again. Default value is 1500.
     -- ------------------------------------------------------------------------------
-    loveRingDelay = 0,
+    loveRingDelay = 1500,
 
     -- ------------------------------------------------------------------------
     -- When enabled, players may choose to enter lower levels of Mythic caves.
@@ -80,15 +87,9 @@ Config = {
     rebalancedSpawnsEnabled = true,
     fastSpawnsEnabled = false,
 
-	-- ------------------------------------------------------
-	-- Allows marriage without the three day waiting period.
-	-- Default value is false.
-	-- ------------------------------------------------------
-	shotgunWeddingEnabled = true,
-
     -- -----------------------------------------------------------------------
     -- When enabled, players receive a basic horse mount along with the usual
     -- peasant gear during the first tutorial. Default value is false.
     -- -----------------------------------------------------------------------
-    tutorialMountEnabled = true
+    tutorialMountEnabled = false
 }
