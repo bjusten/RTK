@@ -13772,23 +13772,13 @@ static int append_group_member(USER *sd, int i, int len) {
 		}
 	}
 
-	if (tsd->status.facialhair > 0) {
-		WFIFOW(sd->fd, len) = SWAP16(tsd->status.facialhair); len += 2;
-		WFIFOB(sd->fd, len) = tsd->status.facialhair_color; len++;
-	} else {
-		WFIFOW(sd->fd, len) = 0xFFFF; len += 2; //second face acc
-		WFIFOB(sd->fd, len) = 0x0; len++; //" color
-	}
-
-	/*
 	if (!pc_isequip(tsd, EQ_FACEACCTWO)) {
 		WFIFOW(sd->fd, len) = 0xFFFF; len += 2; //second face acc
 		WFIFOB(sd->fd, len) = 0x0; len++; //" color
 	} else {
-		WFIFOW(sd->fd, len) = SWAP16(pc_isequip(tsd, EQ_FACEACCTWO)); len += 2;
-		WFIFOB(sd->fd, len) = tsd->status.equip[EQ_FACEACCTWO].custom; len++;
+		WFIFOW(sd->fd, len) = SWAP16(itemdb_look(pc_isequip(tsd, EQ_FACEACCTWO))); len += 2;
+		WFIFOB(sd->fd, len) = itemdb_lookcolor(pc_isequip(tsd, EQ_FACEACCTWO)); len++;
 	}
-	*/
 
 	WFIFOL(sd->fd,len) = SWAP32(tsd->max_hp); len += 4;
 	WFIFOL(sd->fd,len) = SWAP32(tsd->status.hp); len += 4;
