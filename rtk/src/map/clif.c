@@ -10830,39 +10830,39 @@ int clif_parseviewchange(USER* sd) {
 }
 
 int clif_parsefriends(USER* sd, char* friendList, int len) {
-	int i = 0;
-	int j = 0;
-	char friends[20][16];
-	char escape[16];
-	int friendCount = 0;
-	SqlStmt* stmt = SqlStmt_Malloc(sql_handle);
 
+	if (len <= 0) {
+		printf("ERROR: Friends list request has %d length\n", len);
+		return 0;
+	}
+
+	int i = 0;
+	unsigned char friendCount = friendList[i++];
+	if (friendCount < 0 || friendCount > 20 ) {
+		printf("ERROR: Friends list request has invalid friend count '%d' (valid 0-20)\n,", friendCount);
+		return 0;
+	} else if (friendCount == 0)
+		return 0;
+
+	char friends[friendCount][16];
+	memset(&friends, 0, sizeof(char) * friendCount * 16);
+
+	int j = 0;
+	do {
+		if (i + 1 >= len) break;
+		unsigned char friendLen = friendList[i++];
+		if (friendLen > 16 || friendLen > (len - i)) break;
+
+		for(int k = 0; k < friendLen; k++)
+			friends[j][k] = friendList[i++];
+	} while (++j < friendCount);
+
+	SqlStmt* stmt = SqlStmt_Malloc(sql_handle);
 	if (stmt == NULL)
 	{
 		SqlStmt_ShowDebug(stmt);
 		return 0;
 	}
-
-	memset(friends, 0, sizeof(char) * 20 * 16);
-
-	do
-	{
-		j = 0;
-
-		if (friendList[i] == 0x0C)
-		{
-			do
-			{
-				i = i + 1;
-				friends[friendCount][j] = friendList[i];
-				j = j + 1;
-			} while (friendList[i] != 0x00);
-
-			friendCount = friendCount + 1;
-		}
-
-		i = i + 1;
-	} while (i < len);
 
 	if (SQL_ERROR == SqlStmt_Prepare(stmt, "SELECT * FROM `Friends` WHERE `FndChaId` = %d", sd->status.id)
 		|| SQL_ERROR == SqlStmt_Execute(stmt))
@@ -10880,7 +10880,10 @@ int clif_parsefriends(USER* sd, char* friendList, int len) {
 
 	for (i = 0; i < 20; i++)
 	{
-		Sql_EscapeString(sql_handle, escape, friends[i]);
+		char escape[16];
+		memset(&escape, 0, 16);
+
+		if (i < friendCount) Sql_EscapeString(sql_handle, escape, friends[i]);
 
 		if (SQL_ERROR == Sql_Query(sql_handle, "UPDATE `Friends` SET `FndChaName%d` = '%s' WHERE `FndChaId` = '%u'", i + 1, escape, sd->status.id))
 			Sql_ShowDebug(sql_handle);
@@ -10888,6 +10891,7 @@ int clif_parsefriends(USER* sd, char* friendList, int len) {
 
 	SqlStmt_Free(stmt);
 	return 0;
+
 }
 
 int clif_changeprofile(USER* sd) {
