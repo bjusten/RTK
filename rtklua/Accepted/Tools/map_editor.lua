@@ -31,7 +31,7 @@ map_editor = {
 			)
 			if confirm == "Yes" then
 				saveMap(player.m, "../rtkmaps/Accepted/" .. player.mapfile)
-				os.execute("rsync -ah --include='*.map' --include='*/' --exclude='*' /mnt/rtkmaps/Accepted /root/rtkmaps")
+				os.execute("rsync -ah --include='*.map' --include='*/' --exclude='*' /root/rtkmaps/Accepted /mnt/rtkmaps")
 				player:sendMinitext("Map saved!")
 				gm = player:getUsers()
 				for i = 1, #gm do

@@ -447,7 +447,7 @@ int command_shutdown(USER* sd, char* line, lua_State* state) {
 	return 0;
 }
 int command_luareload(USER* sd, char* line, lua_State* state) {
-	system("rsync -avh --include='*.lua' --include='*/' --exclude='*' --delete /mnt/rtklua /home");
+	system("rsync -avh --include='*.lua' --include='*/' --exclude='*' --delete /mnt/rtklua /root");
 	printf("Lua scripts synced with Host!");
 	
 	int errors = sl_reload(state);
@@ -1594,7 +1594,7 @@ int command_reloadcreations(USER* sd, char* line, lua_State* state) {
 }
 
 int command_reloadmaps(USER* sd, char* line, lua_State* state) {
-	system("rsync -avh --include='*.map' --include='*/' --exclude='*' --delete /mnt/rtkmaps/Accepted /home/rtkmaps");
+	system("rsync -avh --include='*.map' --include='*/' --exclude='*' --delete /mnt/rtkmaps/Accepted /root/rtkmaps");
 	printf("Maps synced with Host!");
 
 	map_reload();
