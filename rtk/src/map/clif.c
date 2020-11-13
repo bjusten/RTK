@@ -6299,7 +6299,8 @@ int clif_parsemap(USER* sd) {
 	y0 = SWAP16(RFIFOW(sd->fd, 7));
 	x1 = RFIFOB(sd->fd, 9);
 	y1 = RFIFOB(sd->fd, 10);
-	checksum = SWAP16(RFIFOW(sd->fd, 11));
+	// There is an unknown/unused byte at location 11 with value of 0
+	checksum = SWAP16(RFIFOW(sd->fd, 12));
 
 	if (RFIFOB(sd->fd, 3) == 5) {
 		checksum = 0;
@@ -6313,85 +6314,59 @@ int clif_parsemap(USER* sd) {
 }
 
 int clif_sendmapdata(USER* sd, int m, int x0, int y0, int x1, int y1, unsigned short check) {
-	int x, y, pos;
-	unsigned short checksum;
-	unsigned short buf[65536];
 
-	if (!session[sd->fd])
-	{
+	if (!session[sd->fd]) {
 		session[sd->fd]->eof = 8;
 		return 0;
 	}
 
 	if (map_readglobalreg(m, "blackout") != 0) { sl_doscript_blargs("sendMapData", NULL, 1, &sd->bl); return 0; }
 
-	WFIFOHEAD(sd->fd, 65535);
-	char buf2[65536];
-	int a = 0;
-	int len = 0;
-	checksum = 0;
-
-	int side = sd->status.side;
-	int max = 3;
-
-	//if(((y1-y0)*(x1-x0)*6)>65535) {
+	// Requested size should not be larger then the max map size
 	if ((x1 * y1) > 323) {
 		printf("eof bug encountered by %s\n %u %u to %u %u\n", sd->status.name, x0, y0, x1, y1);
-		//session[sd->fd]->eof=1;
 		return 0;
 	}
-	if (x0 < 0)
-		x0 = 0;
-	if (y0 < 0)
-		y0 = 0;
-	if (x1 > map[m].xs)
-		x1 = map[m].xs;
-	if (y1 > map[m].ys)
-		y1 = map[m].ys;
-	WBUFB(buf2, 0) = 0xAA;
-	WBUFB(buf2, 3) = 0x06;
-	WBUFB(buf2, 4) = 0x03;
-	WBUFB(buf2, 5) = 0;
-	WBUFW(buf2, 6) = SWAP16(x0);
-	WBUFW(buf2, 8) = SWAP16(y0);
-	WBUFB(buf2, 10) = x1;
-	WBUFB(buf2, 11) = y1;
-	pos = 12;
-	len = 0;
 
-	for (y = 0; y < y1; y++) {
-		if (y + y0 >= map[m].ys)
-			break;
-		for (x = 0; x < x1; x++) {
-			if (x + x0 >= map[m].xs)
-				break;
-			buf[a] = read_tile(m, x0 + x, y0 + y);
-			buf[a + 1] = read_pass(m, x0 + x, y0 + y);
-			buf[a + 2] = read_obj(m, x0 + x, y0 + y);
-			len = len + 6;
+	if (x0 < 0) x0 = 0;
+	if (y0 < 0) y0 = 0;
+	if (x0+x1 > map[m].xs) x1 = map[m].xs - x0;
+	if (y0+y1 > map[m].ys) y1 = map[m].ys - y0;
 
-			WBUFW(buf2, pos) = SWAP16(read_tile(m, x0 + x, y0 + y));
-			pos += 2;
-			WBUFW(buf2, pos) = SWAP16(read_pass(m, x0 + x, y0 + y));
-			pos += 2;
-			WBUFW(buf2, pos) = SWAP16(read_obj(m, x0 + x, y0 + y));
-			pos += 2;
+	char buf[65536];
+	int buf_pos = 5;
 
-			a += 3;
+	unsigned short crcbuf[65536];
+	int crcbuf_pos = 0;
+
+	WBUFB(buf, buf_pos) = 0; buf_pos++;
+	WBUFW(buf, buf_pos) = SWAP16(x0); buf_pos += 2;
+	WBUFW(buf, buf_pos) = SWAP16(y0); buf_pos += 2;
+	WBUFB(buf, buf_pos) = x1; buf_pos++;
+	WBUFB(buf, buf_pos) = y1; buf_pos++;
+
+	for (int y = 0; y < y1 && y+y0 < map[m].ys; y++) {
+		for (int x = 0; x < x1 && x+x0 < map[m].xs; x++) {
+			unsigned short tile = read_tile(m, x0 + x, y0 + y);
+			unsigned short pass = read_pass(m, x0 + x, y0 + y);
+			unsigned short obj = read_obj(m, x0 + x, y0 + y);
+
+			WBUFW(buf, buf_pos) = SWAP16(tile); buf_pos += 2;
+			WBUFW(buf, buf_pos) = SWAP16(pass); buf_pos += 2;
+			WBUFW(buf, buf_pos) = SWAP16(obj); buf_pos += 2;
+
+			WBUFW(crcbuf, crcbuf_pos) = tile; crcbuf_pos += 2;
+			WBUFW(crcbuf, crcbuf_pos) = pass; crcbuf_pos += 2;
+			WBUFW(crcbuf, crcbuf_pos) = obj; crcbuf_pos += 2;
 		}
 	}
 
-	checksum = nexCRCC(buf, len);
+	unsigned short checksum = nexCRCC(crcbuf, crcbuf_pos);
+	if (checksum == check) return 0;
 
-	if (pos <= 12)
-		return 0;
-
-	if (checksum == check) {
-		return 0;
-	}
-
-	WBUFW(buf2, 1) = SWAP16(pos - 3);
-	memcpy(WFIFOP(sd->fd, 0), buf2, pos);
+	WFIFOHEAD(sd->fd, buf_pos);
+	memcpy(WFIFOP(sd->fd, 0), buf, buf_pos);
+	WFIFOHEADER(sd->fd, 0x06, buf_pos-3);
 	WFIFOSET(sd->fd, encrypt(sd->fd));
 
 	return 0;
