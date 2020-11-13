@@ -225,7 +225,7 @@ int intif_mmo_tosd(int fd, struct mmo_charstatus* p) {
 	clif_sendtime(sd);
 	clif_sendid(sd);
 	clif_sendmapinfo(sd);
-	clif_sendstatus(sd, SFLAG_FULLSTATS | SFLAG_HPMP | SFLAG_XPMONEY);
+	clif_sendstatus(sd, SFLAG_FULLSTATS | SFLAG_HPMP | SFLAG_XPMONEY | SFLAG_TNL_AC);
 	clif_mystaytus(sd);
 	clif_spawn(sd);
 	clif_refresh(sd);

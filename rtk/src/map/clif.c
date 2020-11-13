@@ -4820,85 +4820,98 @@ int clif_sendxychange(USER* sd, int dx, int dy) {
 }
 
 int clif_sendstatus(USER* sd, int flags) {
-	int f = flags | SFLAG_ALWAYSON;
-	int tnl = clif_getLevelTNL(sd);
-	int len = 0;
-	nullpo_ret(0, sd);
-	float percentage = clif_getXPBarPercent(sd);
 
-	nullpo_ret(0, sd);
+	nullpo_ret(0,sd);
 
-	if (sd->status.gm_level && sd->optFlags & optFlag_walkthrough)
-		f |= SFLAG_GMON;
-
-	if (!session[sd->fd])
-	{
+	if (!session[sd->fd]) {
 		session[sd->fd]->eof = 8;
 		return 0;
 	}
 
-	WFIFOHEAD(sd->fd, 63);
-	WFIFOB(sd->fd, 0) = 0xAA;
-	WFIFOB(sd->fd, 3) = OUT_STATUS;
-	//WFIFOB(sd->fd,4)=0x03;
-	WFIFOB(sd->fd, 5) = f;
+	int f = flags | SFLAG_XPMONEY | SFLAG_STATUS;
+	if (sd->status.gm_level && sd->optFlags & optFlag_walkthrough) f |= SFLAG_GMON;
+
+	int path = sd->status.class;
+	if (path > 5) path = classdb_path(path);
+
+	int level = sd->status.level;
+	float percentage = 0;
+	unsigned int tnl = 0;
+
+	if (level < 99) {
+		int helper=classdb_level(path,level) - classdb_level(path,level-1);
+		tnl=classdb_level(path,level) - (sd->status.exp);
+		percentage=(((float)(helper-tnl))/(helper))*100;
+	} else {
+		percentage=((float)sd->status.exp/4294967295)*100;
+	}
+
+	int len = 5;
+
+	WFIFOHEAD(sd->fd,128);
+
+	WFIFOB(sd->fd,len) = f; len++;
 
 	if (f & SFLAG_FULLSTATS) {
-		WFIFOB(sd->fd, 6) = 0; //Unknown
-		WFIFOB(sd->fd, 7) = sd->status.country;//Nation
-		WFIFOB(sd->fd, 8) = sd->status.totem;// -- Totem -- 0=JuJak, 1= Baekho, 2=Hyun Moo, 3=Chung Ryong, 4=Nothing
-		WFIFOB(sd->fd, 9) = 0; //Unknown
-		WFIFOB(sd->fd, 10) = sd->status.level;
-		WFIFOL(sd->fd, 11) = SWAP32(sd->max_hp);
-		WFIFOL(sd->fd, 15) = SWAP32(sd->max_mp);
-		WFIFOB(sd->fd, 19) = sd->might;
-		WFIFOB(sd->fd, 20) = sd->will;
-		WFIFOB(sd->fd, 21) = 0x03;
-		WFIFOB(sd->fd, 22) = 0x03;
-		WFIFOB(sd->fd, 23) = sd->grace;
-		WFIFOB(sd->fd, 24) = 0;
-		WFIFOB(sd->fd, 25) = 0;
-		WFIFOB(sd->fd, 26) = sd->armor; //AC
-		WFIFOB(sd->fd, 27) = 0;
-		WFIFOB(sd->fd, 28) = 0;
-		WFIFOB(sd->fd, 29) = 0;
-		WFIFOB(sd->fd, 30) = 0;
-		WFIFOB(sd->fd, 31) = 0;
-		WFIFOB(sd->fd, 32) = 0;
-		WFIFOB(sd->fd, 33) = 0;
-		WFIFOB(sd->fd, 34) = sd->status.maxinv;
-		len += 29;
+		WFIFOB(sd->fd,len) = 0; len++; //Unknown
+		WFIFOB(sd->fd,len) = sd->status.country; len++; //Nation
+		WFIFOB(sd->fd,len) = sd->status.totem; len++; // -- Totem -- 0=JuJak, 1= Baekho, 2=Hyun Moo, 3=Chung Ryong, 4=Nothing
+		WFIFOB(sd->fd,len) = 0; len++; //Unknown
+		WFIFOB(sd->fd,len) = sd->status.level; len++;
+		WFIFOL(sd->fd,len) = SWAP32(sd->max_hp); len += 4;
+		WFIFOL(sd->fd,len) = SWAP32(sd->max_mp); len += 4;
+		WFIFOB(sd->fd,len) = sd->might; len++;
+		WFIFOB(sd->fd,len) = sd->will; len++;
+		WFIFOB(sd->fd,len) = 0x03; len++;
+		WFIFOB(sd->fd,len) = 0x03; len++;
+		WFIFOB(sd->fd,len) = sd->grace; len++;
+		WFIFOB(sd->fd,len) = 0; len++;
+		WFIFOB(sd->fd,len) = 0; len++;
+		WFIFOB(sd->fd,len) = sd->armor; len++; //AC
+		WFIFOB(sd->fd,len) = 0; len++;
+		WFIFOB(sd->fd,len) = 0; len++;
+		WFIFOB(sd->fd,len) = 0; len++;
+		WFIFOB(sd->fd,len) = 0; len++;
+		WFIFOB(sd->fd,len) = 0; len++;
+		WFIFOB(sd->fd,len) = 0; len++;
+		WFIFOB(sd->fd,len) = 0; len++;
+		WFIFOB(sd->fd,len) = sd->status.maxinv;  len++;
 	}
 
 	if (f & SFLAG_HPMP) {
-		WFIFOL(sd->fd, len + 6) = SWAP32(sd->status.hp);
-		WFIFOL(sd->fd, len + 10) = SWAP32(sd->status.mp);
-		len += 8;
+		WFIFOL(sd->fd,len) = SWAP32(sd->status.hp); len += 4;
+		WFIFOL(sd->fd,len) = SWAP32(sd->status.mp); len += 4;
 	}
 
 	if (f & SFLAG_XPMONEY) {
-		WFIFOL(sd->fd, len + 6) = SWAP32(sd->status.exp);
-		WFIFOL(sd->fd, len + 10) = SWAP32(sd->status.money);
-		WFIFOB(sd->fd, len + 14) = (int)percentage; //exp percent
-		len += 9;
+		WFIFOL(sd->fd,len) = SWAP32(sd->status.exp); len += 4;
+		WFIFOL(sd->fd,len) = SWAP32(sd->status.money); len += 4;
+		WFIFOB(sd->fd,len) = (int) percentage; len++;
 	}
 
-	WFIFOB(sd->fd, len + 6) = sd->drunk; // drunk
-	WFIFOB(sd->fd, len + 7) = sd->blind; //blind
-	WFIFOB(sd->fd, len + 8) = 0;
-	WFIFOB(sd->fd, len + 9) = 0; // hear self/others
-	WFIFOB(sd->fd, len + 10) = 0;
-	WFIFOB(sd->fd, len + 11) = sd->flags; //1=New parcel, 16=new Message, 17=New Parcel + Message
-	WFIFOB(sd->fd, len + 12) = 0; //nothing
-	WFIFOL(sd->fd, len + 13) = SWAP32(sd->status.settingFlags);
-	len += 11;
+	if (f & SFLAG_STATUS) {
+		WFIFOB(sd->fd,len) = sd->drunk; len++;
+		WFIFOB(sd->fd,len) = sd->blind; len++;
+		WFIFOB(sd->fd,len) = 0; len++;
+		WFIFOB(sd->fd,len) = 0; len++; //hear self/others
+		WFIFOB(sd->fd,len) = 0; len++;
+		WFIFOB(sd->fd,len) = sd->flags; len++; //1=New parcel, 16=new Message, 17=New Parcel + Message
+		WFIFOB(sd->fd,len) = 0; len++; //nothing
+		WFIFOL(sd->fd,len) = SWAP32(sd->status.settingFlags); len += 4;
+	}
 
-	WFIFOW(sd->fd, 1) = SWAP16(len + 3);
+	if (f & SFLAG_TNL_AC) {
+		WFIFOL(sd->fd,len) = SWAP32(tnl); len += 4;
+		WFIFOB(sd->fd,len) = sd->armor; len++;
+		WFIFOB(sd->fd,len) = 0; len++;
+		WFIFOB(sd->fd,len) = 0; len++;
+	}
+
+	WFIFOHEADER(sd->fd, 0x08, len - 3);
 	WFIFOSET(sd->fd, encrypt(sd->fd));
 
-	if (sd->group_count > 0) {
+	if (sd->group_count > 0)
 		clif_grouphealth_update(sd);
-	}
 
 	return 0;
 }
