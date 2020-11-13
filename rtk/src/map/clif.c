@@ -13698,296 +13698,132 @@ int clif_clickonplayer(USER* sd, struct block_list* bl) {
 	return 0;
 }
 
-int clif_groupstatus(USER* sd) {
-	int x, n, w, r, m, p, a, g;
-	int len = 0;
-	int y;
-	int count;
+static void update_user_percentage(USER *sd) {
+
+	if (sd->status.level < 99) {
+		sd->status.maxtnl = classdb_level(sd->status.class,sd->status.level);
+		sd->status.maxtnl -= classdb_level(sd->status.class,sd->status.level-1);
+		sd->status.tnl = classdb_level(sd->status.class,sd->status.level) - (sd->status.exp);
+		sd->status.percentage = (((float)(sd->status.maxtnl-sd->status.tnl) / sd->status.maxtnl) * 100) + 0.5;
+	} else
+		sd->status.percentage = ((float)(sd->status.exp / 4294967295) * 100) + 0.5;
+
+}
+
+static int append_group_member(USER *sd, int i, int len) {
+
+	nullpo_ret(len, sd);
+
+	USER *tsd = map_id2sd(groups[sd->groupid][i]);
+	nullpo_ret(len, tsd);
+
+	update_user_percentage(tsd);
+
 	char buf[32];
-	int rogue[256];
-	int warrior[256];
-	int mage[256];
-	int poet[256];
-	int peasant[256];
-	int gm[256];
+	int blen = sprintf(buf, "%s [%i%%]", tsd->status.name, (int) tsd->status.percentage);
 
-	memset(rogue, 0, sizeof(int) * 256);
-	memset(warrior, 0, sizeof(int) * 256);
-	memset(mage, 0, sizeof(int) * 256);
-	memset(poet, 0, sizeof(int) * 256);
-	memset(peasant, 0, sizeof(int) * 256);
-	memset(gm, 0, sizeof(int) * 256);
+	WFIFOL(sd->fd,len) = SWAP32(tsd->status.id); len += 4;
+	WFIFOB(sd->fd,len) = blen; len++;
+	strcpy(WFIFOP(sd->fd,len), buf); len += blen;
 
-	USER* tsd = NULL;
-	count = 0;
-	//if(sd->group_count==1) sd->group_count==0;
+	WFIFOB(sd->fd,len) = sd->group_leader == tsd->status.id ? 1 : 0; len++;
+	WFIFOB(sd->fd,len) = tsd->status.state; len++;
+	WFIFOB(sd->fd,len) = tsd->status.face; len++;
+	WFIFOB(sd->fd,len) = tsd->status.hair; len++;
+	WFIFOB(sd->fd,len) = tsd->status.hair_color; len++;
+	WFIFOB(sd->fd,len) = tsd->status.face_color; len++;
+	WFIFOB(sd->fd,len) = tsd->status.skin_color; len++;
 
-	if (!session[sd->fd])
-	{
-		session[sd->fd]->eof = 8;
-		return 0;
-	}
+	if (!pc_isequip(tsd,EQ_HELM) || !(tsd->status.settingFlags & FLAG_HELM) || (itemdb_look(pc_isequip(tsd,EQ_HELM)) == -1)) {
+		WFIFOB(sd->fd, len) = 0; len++; // supposed to be 1=Helm, 0=No helm
+		WFIFOW(sd->fd, len) = 0xFFFF; len += 2; // supposed to be Helm num
+	} else {
+		WFIFOB(sd->fd, len) = 1; len++;
 
-	WFIFOHEAD(sd->fd, 65535);
-	WFIFOB(sd->fd, 0) = 0xAA;
-	WFIFOB(sd->fd, 1) = 0x00;
-	WFIFOB(sd->fd, 3) = 0x63;
-	WFIFOB(sd->fd, 5) = 2;
-	WFIFOB(sd->fd, 6) = sd->group_count;
-
-	for (x = 0, n = 0, w = 0, r = 0, m = 0, p = 0, g = 0; (n + w + r + m + p + g) < sd->group_count; x++) {
-		tsd = map_id2sd(groups[sd->groupid][x]);
-		if (!tsd)
-			continue;
-
-		// TNL TEST SHIT
-
-		if (tsd->status.level < 99) {
-			tsd->status.maxtnl = classdb_level(tsd->status.class, tsd->status.level);
-
-			tsd->status.maxtnl -= classdb_level(tsd->status.class, tsd->status.level - 1);
-
-			tsd->status.tnl = classdb_level(tsd->status.class, tsd->status.level) - (tsd->status.exp);
-
-			tsd->status.percentage = (((float)(tsd->status.maxtnl - tsd->status.tnl) / tsd->status.maxtnl) * 100 + 0.5) + 0.5;
-		}
-
-		else { tsd->status.percentage = ((float)(tsd->status.exp / 4294967295) * 100) + 0.5; }
-
-		tsd->status.intpercentage = (int)tsd->status.percentage;
-		tsd->status.intpercentage = tsd->status.intpercentage;
-
-		count++;
-
-		switch (classdb_path(tsd->status.class)) {
-		case 0:
-			peasant[n] = groups[sd->groupid][x];
-			n++;
-			break;
-		case 1:
-			warrior[w] = groups[sd->groupid][x];
-			w++;
-			break;
-		case 2:
-			rogue[r] = groups[sd->groupid][x];
-			r++;
-			break;
-		case 3:
-			mage[m] = groups[sd->groupid][x];
-			m++;
-			break;
-		case 4:
-			poet[p] = groups[sd->groupid][x];
-			p++;
-			break;
-		default:
-			gm[g] = groups[sd->groupid][x];
-			g++;
-			break;
+		if (tsd->status.equip[EQ_HELM].customLook != 0) {
+			WFIFOB(sd->fd, len) = SWAP16(tsd->status.equip[EQ_HELM].customLook); len++;
+			WFIFOB(sd->fd, len) = tsd->status.equip[EQ_HELM].customLookColor; len++;
+		} else {
+			WFIFOB(sd->fd, len) = SWAP16(itemdb_look(pc_isequip(tsd,EQ_HELM))); len++;
+			WFIFOB(sd->fd, len) = itemdb_lookcolor(pc_isequip(tsd,EQ_HELM)); len++;
 		}
 	}
 
-	for (x = 0, n = 0, w = 0, r = 0, m = 0, p = 0, g = 0; (n + w + r + m + p + g) < sd->group_count; x++) {
-		if (rogue[r] != 0) {
-			tsd = map_id2sd(rogue[r]);
-			r++;
-		}
-		else if (warrior[w] != 0) {
-			tsd = map_id2sd(warrior[w]);
-			w++;
-		}
-		else if (mage[m] != 0) {
-			tsd = map_id2sd(mage[m]);
-			m++;
-		}
-		else if (poet[p] != 0) {
-			tsd = map_id2sd(poet[p]);
-			p++;
-		}
-		else if (peasant[n] != 0) {
-			tsd = map_id2sd(peasant[n]);
-			n++;
-		}
-		else if (gm[g] != 0) {
-			tsd = map_id2sd(gm[g]);
-			g++;
-		}
-		if (!tsd)
-			continue;
-
-		sprintf(buf, "%s", tsd->status.name);
-
-		WFIFOL(sd->fd, len + 7) = SWAP32(tsd->bl.id);
-
-		WFIFOB(sd->fd, len + 11) = strlen(buf);
-		strcpy(WFIFOP(sd->fd, len + 12), buf);
-
-		len += 11;
-		len += strlen(buf) + 1;
-
-		if (sd->group_leader == tsd->status.id) {
-			WFIFOB(sd->fd, len) = 1;
-		}
-		else {
-			WFIFOB(sd->fd, len) = 0;
-		}
-
-		WFIFOB(sd->fd, len + 1) = tsd->status.state; // 22
-		WFIFOB(sd->fd, len + 2) = tsd->status.face;  //23
-		WFIFOB(sd->fd, len + 3) = tsd->status.hair; //24
-		WFIFOB(sd->fd, len + 4) = tsd->status.hair_color; //25
-		WFIFOB(sd->fd, len + 5) = 0; // 26
-
-		if (!pc_isequip(tsd, EQ_HELM) || !(tsd->status.settingFlags & FLAG_HELM) || (itemdb_look(pc_isequip(tsd, EQ_HELM)) == -1)) {
-			//helm stuff goes here
-			WFIFOB(sd->fd, len + 6) = 0; // supposed to be 1=Helm, 0=No helm
-			WFIFOW(sd->fd, len + 7) = 0xFFFF; // supposed to be Helm num
-			WFIFOB(sd->fd, len + 9) = 0;
-		}
-		else {
-			WFIFOB(sd->fd, len + 6) = 1;
-
-			if (tsd->status.equip[EQ_HELM].customLook != 0) {
-				WFIFOW(sd->fd, len + 7) = SWAP16(tsd->status.equip[EQ_HELM].customLook);
-				WFIFOB(sd->fd, len + 9) = tsd->status.equip[EQ_HELM].customLookColor;
-			}
-			else {
-				WFIFOW(sd->fd, len + 7) = SWAP16(itemdb_look(pc_isequip(tsd, EQ_HELM)));
-				WFIFOB(sd->fd, len + 9) = itemdb_lookcolor(pc_isequip(tsd, EQ_HELM));
-			}
-		}
-
-		if (!pc_isequip(tsd, EQ_FACEACC)) {
-			//beard stuff
-			WFIFOW(sd->fd, len + 10) = 0xFFFF;
-			WFIFOB(sd->fd, len + 12) = 0x0;
-		}
-		else {
-			WFIFOW(sd->fd, len + 10) = SWAP16(itemdb_look(pc_isequip(tsd, EQ_FACEACC))); //beard num
-			WFIFOB(sd->fd, len + 12) = itemdb_lookcolor(pc_isequip(tsd, EQ_FACEACC)); //beard color
-		}
-
-		if (!pc_isequip(tsd, EQ_CROWN)) {
-			WFIFOW(sd->fd, len + 13) = 0xFFFF;
-			WFIFOB(sd->fd, len + 15) = 0x0;
-		}
-		else {
-			WFIFOB(sd->fd, len + 6) = 0;
-
-			if (tsd->status.equip[EQ_CROWN].customLook != 0) {
-				WFIFOW(sd->fd, len + 13) = SWAP16(tsd->status.equip[EQ_CROWN].customLook); //Crown
-				WFIFOB(sd->fd, len + 15) = tsd->status.equip[EQ_CROWN].customLookColor; //Crown color
-			}
-			else {
-				WFIFOW(sd->fd, len + 13) = SWAP16(itemdb_look(pc_isequip(tsd, EQ_CROWN))); //Crown
-				WFIFOB(sd->fd, len + 15) = itemdb_lookcolor(pc_isequip(tsd, EQ_CROWN)); //Crown color
-			}
-		}
-
-		if (!pc_isequip(tsd, EQ_FACEACCTWO)) {
-			WFIFOW(sd->fd, len + 16) = 0xFFFF; //second face acc
-			WFIFOB(sd->fd, len + 18) = 0x0; //" color
-		}
-		else {
-			WFIFOW(sd->fd, len + 16) = SWAP16(itemdb_look(pc_isequip(tsd, EQ_FACEACCTWO)));
-			WFIFOB(sd->fd, len + 18) = itemdb_lookcolor(pc_isequip(tsd, EQ_FACEACCTWO));
-		}
-
-		len += 12; // 33
-
-		WFIFOL(sd->fd, len + 7) = SWAP32(tsd->max_hp);
-		len += 4; // 37
-		WFIFOL(sd->fd, len + 7) = SWAP32(tsd->status.hp);
-		len += 4; // 41
-		WFIFOL(sd->fd, len + 7) = SWAP32(tsd->max_mp);
-		len += 4; // 45
-		WFIFOL(sd->fd, len + 7) = SWAP32(tsd->status.mp);
-		len += 4; // 49
+	if (!pc_isequip(tsd,EQ_FACEACC)) {
+		WFIFOW(sd->fd, len) = 0xFFFF; len += 2;
+		WFIFOB(sd->fd, len) = 0x0; len++;
+	} else {
+		WFIFOW(sd->fd, len) = SWAP16(itemdb_look(pc_isequip(tsd,EQ_FACEACC))); len += 2; //beard num
+		WFIFOB(sd->fd, len) = itemdb_lookcolor(pc_isequip(tsd,EQ_FACEACC)); len++; //beard color
 	}
 
-	WFIFOB(sd->fd, 6) = sd->group_count;
+	if (!pc_isequip(tsd,EQ_CROWN)) {
+		WFIFOW(sd->fd, len) = 0xFFFF; len += 2;
+		WFIFOB(sd->fd, len) = 0x0; len++;
+	} else {
+		WFIFOB(sd->fd, len-7) = 0; // disable helm
 
-	len += 6;
+		if (tsd->status.equip[EQ_CROWN].customLook != 0) {
+			WFIFOW(sd->fd, len) = SWAP16(tsd->status.equip[EQ_CROWN].customLook); len += 2; //Crown
+			WFIFOB(sd->fd, len) = tsd->status.equip[EQ_CROWN].customLookColor; len++; //Crown color
+		} else {
+			WFIFOW(sd->fd, len) = SWAP16(itemdb_look(pc_isequip(tsd,EQ_CROWN))); len += 2; //Crown
+			WFIFOB(sd->fd, len) = itemdb_lookcolor(pc_isequip(tsd,EQ_CROWN)); len++; //Crown color
+		}
+	}
 
-	WFIFOW(sd->fd, 1) = SWAP16(len + 3);
+	if (tsd->status.facialhair > 0) {
+		WFIFOW(sd->fd, len) = SWAP16(tsd->status.facialhair); len += 2;
+		WFIFOB(sd->fd, len) = tsd->status.facialhair_color; len++;
+	} else {
+		WFIFOW(sd->fd, len) = 0xFFFF; len += 2; //second face acc
+		WFIFOB(sd->fd, len) = 0x0; len++; //" color
+	}
 
-	WFIFOSET(sd->fd, encrypt(sd->fd));
+	/*
+	if (!pc_isequip(tsd, EQ_FACEACCTWO)) {
+		WFIFOW(sd->fd, len) = 0xFFFF; len += 2; //second face acc
+		WFIFOB(sd->fd, len) = 0x0; len++; //" color
+	} else {
+		WFIFOW(sd->fd, len) = SWAP16(pc_isequip(tsd, EQ_FACEACCTWO)); len += 2;
+		WFIFOB(sd->fd, len) = tsd->status.equip[EQ_FACEACCTWO].custom; len++;
+	}
+	*/
+
+	WFIFOL(sd->fd,len) = SWAP32(tsd->max_hp); len += 4;
+	WFIFOL(sd->fd,len) = SWAP32(tsd->status.hp); len += 4;
+	WFIFOL(sd->fd,len) = SWAP32(tsd->max_mp); len += 4;
+	WFIFOL(sd->fd,len) = SWAP32(tsd->status.mp); len += 4;
+
+	return len;
+
+}
+
+int clif_groupstatus(USER *sd) {
+
+	nullpo_ret(0, sd);
+
+	WFIFOHEAD(sd->fd,65535);
+
+	int len = 7;
+	int count = 0;
+	for (int i = 0, oldlen = len; i < sd->group_count; i++, oldlen = len ) {
+		len = append_group_member(sd, i, len);
+		if (oldlen != len) count++;
+	}
+
+	WFIFOB(sd->fd,5) = 2; // sending list of members
+	WFIFOB(sd->fd,6) = count;
+
+	WFIFOHEADER(sd->fd,0x63,len-3);
+	WFIFOSET(sd->fd,encrypt(sd->fd));
+
 	return 0;
+
 }
 
 int clif_grouphealth_update(USER* sd) {
-	//clif_groupstatus(sd);
-
-	/*
-	// TNL TEST SHIT
-	unsigned nextlevelxp, tnl;
-	float percentage;
-	int intpercentage;
-
-	nextlevelxp=clif_getlvlxp(sd->status.level+1);
-
-			//maxtnl-=clif_getlvlxp(99)-1;
-	tnl=nextlevelxp-sd->status.exp;
-	percentage=(((float)tnl/nextlevelxp)*100) + 0.5;
-	intpercentage = (int)percentage;
-	intpercentage = 100 - intpercentage;
-	*/
-
-	int x;
-	int len;
-	char buf[32];
-	USER* tsd = NULL;
-
-	for (x = 0; x < sd->group_count; x++) {
-		len = 0;
-		tsd = map_id2sd(groups[sd->groupid][x]);
-		if (!tsd)
-			continue;
-
-		if (!session[sd->fd])
-		{
-			session[sd->fd]->eof = 8;
-			return 0;
-		}
-
-		WFIFOHEAD(sd->fd, 512);
-		WFIFOB(sd->fd, 0) = 0xAA;
-		WFIFOB(sd->fd, 3) = 0x63;
-		WFIFOB(sd->fd, 4) = 0x03;
-		WFIFOB(sd->fd, 5) = 0x03;
-
-		/*WFIFOB(sd->fd,6)=1;
-		WFIFOB(sd->fd,7)=26;
-		WFIFOB(sd->fd,8)=60;
-		WFIFOB(sd->fd,9)=195;*/
-
-		WFIFOL(sd->fd, 6) = SWAP32(tsd->bl.id);
-
-		sprintf(buf, "%s", tsd->status.name);
-
-		WFIFOB(sd->fd, 10) = strlen(buf);
-		strcpy(WFIFOP(sd->fd, 11), buf);
-
-		len += 10;
-		len += strlen(buf) + 1;
-
-		WFIFOL(sd->fd, len) = SWAP32(tsd->status.hp);
-		len += 4;
-		WFIFOL(sd->fd, len) = SWAP32(tsd->status.mp);
-		len += 4;
-
-		/*printf("packet sent: \n");
-		for (int i=0; i<len+3;i++) {
-		printf("%i ", WFIFOB(tsd->fd,i)); }
-		printf("\n\n\n");*/
-
-		WFIFOW(sd->fd, 1) = SWAP16(len + 3);
-		WFIFOSET(sd->fd, encrypt(sd->fd));
-
-		clif_groupstatus(sd);
-	}
-
-	return 0;
+	return clif_groupstatus(sd);
 }
 
 int clif_addgroup(USER* sd) {
