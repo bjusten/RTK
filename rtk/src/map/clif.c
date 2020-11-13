@@ -13813,7 +13813,35 @@ int clif_groupstatus(USER *sd) {
 }
 
 int clif_grouphealth_update(USER* sd) {
-	return clif_groupstatus(sd);
+
+	nullpo_ret(0, sd);
+
+	update_user_percentage(sd);
+
+	char buf[32];
+	int blen = sprintf(buf, "%s [%i%%]", sd->status.name, (int) sd->status.percentage);
+
+	for (int i = 0; i < sd->group_count; i++) {
+		unsigned int member_id = groups[sd->groupid][i];
+
+		USER *tsd = map_id2sd(member_id);
+		if (tsd == NULL || !session[tsd->fd]) continue;
+
+		WFIFOHEAD(tsd->fd,19+blen);
+		WFIFOHEADER(tsd->fd,0x63,16+blen);
+
+		WFIFOB(tsd->fd,5) = 3; // sending single update
+		WFIFOL(tsd->fd,6) = SWAP32(sd->status.id);
+		WFIFOB(tsd->fd,10) = blen;
+		strncpy(WFIFOP(tsd->fd,11), buf, blen);
+		WFIFOL(tsd->fd,11+blen) = SWAP32(sd->status.hp);
+		WFIFOL(tsd->fd,15+blen) = SWAP32(sd->status.mp);
+
+		WFIFOSET(tsd->fd,encrypt(tsd->fd));
+	}
+
+	return 0;
+
 }
 
 int clif_addgroup(USER* sd) {
