@@ -1844,7 +1844,7 @@ local _mobDropsTable = {
 		},
 		rareLoot = {
 			items = {"forsaken_ring", "scribes_pen"},
-			rates = {1, 0.034}
+			rates = {0.034, 1}
 		}
 	},
 	["spirit_rooster"] = {

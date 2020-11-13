@@ -89,7 +89,7 @@ int intif_parse_connectconfirm(int fd) {
 	struct login_session_data* sd = session[RFIFOW(fd, 2)]->session_data;
 
 	if (RFIFOB(fd, 4) == 0) {
-		Log_Add("validlogin", "<%02d:%02d> User: %s IP: %u.%u.%u.%u   Password used: %s\n", getHour(), getMinute(), sd->name, CONVIP(session[RFIFOW(fd, 2)]->client_addr.sin_addr.s_addr), sd->pass);
+		Log_Add("validlogin", "<%02d:%02d> User: %s IP: %u.%u.%u.%u\n", getHour(), getMinute(), sd->name, CONVIP(session[RFIFOW(fd, 2)]->client_addr.sin_addr.s_addr));
 		//printf("	Connection confirmed. Sending LOGIN OK.\n");
 
 ////////// UPDATE IP ADDRESS IN DATABASE SO WE MAY TRACK USERS WHILE THEY ARE PLAYING.... ADDED 06-29-2017 ////////////////////////
@@ -154,7 +154,7 @@ int intif_parse_connectconfirm(int fd) {
 	else if (RFIFOB(fd, 4) == 0x02)
 		clif_message(RFIFOW(fd, 2), 0x03, login_msg[LGN_WRONGUSER]);
 	else if (RFIFOB(fd, 4) == 0x03) {
-		Log_Add("invalidlogin", "<%02d:%02d> Login:%s IP:%u.%u.%u.%u Password used:%s\n", getHour(), getMinute(), sd->name, CONVIP(session[RFIFOW(fd, 2)]->client_addr.sin_addr.s_addr), sd->pass);
+		Log_Add("invalidlogin", "<%02d:%02d> Login:%s IP:%u.%u.%u.%u\n", getHour(), getMinute(), sd->name, CONVIP(session[RFIFOW(fd, 2)]->client_addr.sin_addr.s_addr));
 		if (setInvalidCount(session[RFIFOW(fd, 2)]->client_addr.sin_addr.s_addr) >= 10) {
 			add_ip_lockout(session[RFIFOW(fd, 2)]->client_addr.sin_addr.s_addr);
 			session[RFIFOW(fd, 2)]->eof = 1;
